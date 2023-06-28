@@ -13,10 +13,11 @@ from uuid import uuid4
 class Uconnect_API: 
 
 
-    def __init__(self) -> None:
+    def __init__(self, username: str, password: str, pin : str) -> None:
         
-        self._user = ''
-        self._passw = ''
+        self._user = username
+        self._passw = password
+        self._pin = pin
         self._loginApiKey = "3_mOx_J2dRgjXYCdyhchv3b5lhi54eBcdCTX4BI8MORqmZCoQWhA0mV2PTlptLGUQI"
         self._apiKey = "2wGyL6PHec9o1UeLPYpoYa1SkEWqeBur9bLsi24i"
         self._loginUrl = "https://loginmyuconnect.fiat.com"
@@ -279,8 +280,6 @@ class Uconnect_API:
 
         
 #        return self._pin_token
-       
-
         
     def fetch_data(self ) -> str:
         r = self.login()
@@ -322,8 +321,9 @@ class Uconnect_API:
         vin = ret['vehicles'][0]['vin']
         print(f'VIN: {vin}')
         
+        #self.post_aws_data(self._pin)
         
-        self.post_aws_command('', vin)
+        self.post_aws_command(self._pin, vin)
         
         #ret = self.get_aws_data(f'{self._apiUrl}/v2/accounts/{self._user_id}/vehicles/{vin}/status')
         #print(json.dumps(ret, indent=4, sort_keys=True))

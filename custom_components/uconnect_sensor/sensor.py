@@ -6,7 +6,7 @@ import logging
 
 import async_timeout
 
-from homeassistant.const import PERCENTAGE
+from homeassistant.const import PERCENTAGE, UnitOfLength, CONF_PIN, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.core import callback
 from homeassistant.exceptions import ConfigEntryAuthFailed
@@ -19,12 +19,12 @@ from homeassistant.helpers.update_coordinator import (
 from .uconnect_api import Uconnect_API
 
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
-#from . import DOMAIN
+from . import DOMAIN
 from requests import get
 #from requests import async
 _LOGGER = logging.getLogger(__name__)
 
-DOMAIN = 'uconnect_sensor'
+#DOMAIN = 'uconnect_sensor'
 
 async def async_setup_platform(
     hass: HomeAssistant,
@@ -35,41 +35,78 @@ async def async_setup_platform(
     """Config entry example."""
     # assuming API object stored here by __init__.py
     
-    coordinator = MyCoordinator(hass, Uconnect_API())
+    coordinator = MyCoordinator(hass, 
+                        Uconnect_API(
+                            hass.data[DOMAIN][CONF_USERNAME],
+                            hass.data[DOMAIN][CONF_PASSWORD],
+                            hass.data[DOMAIN][CONF_PIN]
+                            ))
     await coordinator.async_config_entry_first_refresh()
-
-    #for key in coordinator.data:
-    #    async_add_entities(
-    #        UconnectSensor(coordinator, key) 
-    #    )
 
     async_add_entities(
         UconnectSensor(coordinator, key) for key in coordinator.data
     )
+
+class Car_Information():
+    def __init__(   self, value: str, 
+                    device_class: str, 
+                    display_name: str,
+                    unit_of_measurement: str = None) -> None:
+        self.value = value
+        self.device_class = device_class
+        self.unit_of_measurement = unit_of_measurement
+        self.display_name = display_name
 
 
 class Uconnect_Information():
     def __init__(self, data: str) -> None:
         
         battery_infos = data['evInfo']['battery']
-        self.charging_level             = battery_infos['chargingLevel']
-        self.charging_status            = battery_infos['chargingStatus']
-        #self.distance_to_empty_unit     = battery_infos['distanceToEmpty']['unit']
-        self.distance_to_empty_value    = battery_infos['distanceToEmpty']['value']
-        self.plug_in_status             = battery_infos['plugInStatus']
-        self.state_of_charge            = battery_infos['stateOfCharge']
-        self.total_range                = battery_infos['totalRange']
+
+        self.charging_level = Car_Information(
+                                battery_infos['chargingLevel'],
+                                'enum',
+                                'Charging Level'
+                                )
+        self.charging_status = Car_Information(
+                                battery_infos['chargingStatus'],
+                                'enum',
+                                'Charging Status'
+                                )
+        self.distance_to_empty = Car_Information(
+                                battery_infos['distanceToEmpty']['value'],
+                                'distance',
+                                'Distance to empty',
+                                UnitOfLength.KILOMETERS 
+                                )
+        self.plug_in_status = Car_Information(
+                                battery_infos['plugInStatus'],
+                                'distance',
+                                'Plug in status'
+                                )
+        self.state_of_charge = Car_Information(
+                                battery_infos['stateOfCharge'],
+                                'battery',
+                                'State of Charge',
+                                PERCENTAGE
+                                )
+        self.total_range = Car_Information(
+                                battery_infos['totalRange'],
+                                'distance',
+                                'Total Range',
+                                UnitOfLength.KILOMETERS
+                                )
     
     
     def get_data(self) -> dict:
         
         return_dict = {
             'chargingLevel' : self.charging_level,             
-            'chargingStatus':self.charging_status, 
+            'chargingStatus': self.charging_status, 
             #'distanceToEmpty_unit': self.distance_to_empty_unit,    
-            'distanceToEmpty_value': self.distance_to_empty_value ,   
-            'plugInStatus' : self.plug_in_status    ,        
-            'stateOfCharge' : self.state_of_charge ,
+            'distanceToEmpty': self.distance_to_empty,   
+            'plugInStatus' : self.plug_in_status,        
+            'stateOfCharge' : self.state_of_charge,
             'totalRange' :  self.total_range
         }
         
@@ -92,7 +129,7 @@ class MyCoordinator(DataUpdateCoordinator):
             # Name of the data. For logging purposes.
             name="uconnect",
             # Polling interval. Will only be polled if there are subscribers.
-            update_interval=timedelta(seconds=60),
+            update_interval=timedelta(seconds=600),
         )
         self.api = api
         
@@ -104,14 +141,9 @@ class MyCoordinator(DataUpdateCoordinator):
         so entities can quickly look up their data.
         """
         try:
-            # Note: asyncio.TimeoutError and aiohttp.ClientError are already
-            # handled by the data update coordinator.
+
             async with async_timeout.timeout(10):
-                # Grab active context variables to limit data required to be fetched from API
-                # Note: using context is not required if there is no need or ability to limit
-                # data retrieved from API.
-                
-                
+
                 result = await self.hass.async_add_executor_job(self.api.fetch_data)
 
                 Uconnect_Information(result).get_data()
@@ -124,15 +156,6 @@ class MyCoordinator(DataUpdateCoordinator):
 
 
 class UconnectSensor(CoordinatorEntity, SensorEntity):
-    """An entity using CoordinatorEntity.
-
-    The CoordinatorEntity class provides:
-      should_poll
-      async_update
-      async_added_to_hass
-      available
-
-    """
 
     def __init__(self, coordinator, key):
         """Pass coordinator to CoordinatorEntity."""
@@ -140,11 +163,17 @@ class UconnectSensor(CoordinatorEntity, SensorEntity):
         self._state = None
         self.key = key
         self.sensor_name = key
+        self._unit = None
 
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        self._state = self.coordinator.data[self.key]
+        data = self.coordinator.data[self.key]
+
+        self._state = data.value
+        self._unit = data.unit_of_measurement
+        self._attr_device_class = data.device_class
+        self.sensor_name = data.display_name
         self.async_write_ha_state()
 
     @property
@@ -160,7 +189,7 @@ class UconnectSensor(CoordinatorEntity, SensorEntity):
     @property
     def unit_of_measurement(self) -> str:
         """Return the unit of measurement."""
-        return PERCENTAGE
+        return self._unit
 
 
     

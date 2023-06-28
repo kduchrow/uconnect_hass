@@ -11,5 +11,8 @@ Copy this folder to `<config_dir>/custom_components/uconnect_hass/`.
 Add the following entry in your `configuration.yaml`:
 
 ```yaml
-uconnect_hass:
+uconnect_sensor:
+  username: !secret uconnect_user
+  password: !secret uconnect_pw
+  pin: !secret uconnect_pin
 ```
