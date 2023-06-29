@@ -4,8 +4,6 @@ import json
 import datetime
 from base64 import b64encode
 
-import botocore.session
-from botocore.credentials import Credentials
 from aws_requests_auth.aws_auth import AWSRequestsAuth
 
 from uuid import uuid4
@@ -188,6 +186,46 @@ class Uconnect_API:
         
         return data
     
+    def get_aws_data_post(self, endpoint: str, data: str) -> json:
+
+        new_header = {
+            'Host' : 'channels.sdpr-01.fcagcv.com', 
+            'content-type': 'application/json',
+            "x-clientapp-version": '1.0' ,
+            "clientrequestid": uuid4().hex,
+            'accept' :  'application/json, text/plain, */*',
+            "x-amz-date": datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ'),
+            "x-amz-security-token": self._aws_session_token,
+            "locale": self._locale,
+            "x-api-key": self._apiKey ,
+            "accept-language": "de-de",
+            "x-clientapp-name": "CWP" ,
+            'origin' : 'https://myuconnect.fiat.com',
+            "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 12_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.1.2 Mobile/15E148 Safari/604.1",
+            'referer':  'https://myuconnect.fiat.com/de/de/dashboard',
+            "x-originator-type": "web" 
+            }
+        
+        
+        
+
+        auth = AWSRequestsAuth(
+                            aws_access_key=self._aws_access_key,
+                            aws_secret_access_key=self._aws_secret_key,
+                            aws_token=self._aws_session_token,
+                            aws_host='channels.sdpr-01.fcagcv.com',
+                            aws_region='eu-west-1',
+                            aws_service='execute-api')
+
+
+        response = requests.get(endpoint, auth=auth, headers=new_header, data=json.dumps(data))
+
+
+        
+        data = json.loads(response.content.decode('utf-8'))
+        
+        return data
+    
     
     def post_aws_pin_authenticate(self, pin: str) -> json:   
     
@@ -238,11 +276,11 @@ class Uconnect_API:
         return self._pin_token
     
     
-    def post_aws_command(self, pin: str, vin:str) -> json:   
+    def post_aws_command(self, pin: str, vin:str, command:str, action:str) -> json:   
     
         pin_token = self.post_aws_pin_authenticate(pin)
     
-        endpoint = f'{self._authUrl}/v1/accounts/{self._user_id}/vehicles/{vin}/remote'
+        endpoint = f'{self._authUrl}/v1/accounts/{self._user_id}/vehicles/{vin}/{action}'
     
         new_header = {
             'Host' : 'channels.sdpr-01.fcagcv.com', 
@@ -270,7 +308,7 @@ class Uconnect_API:
                             aws_service='execute-api')
 
         payload = {
-            'command':'ROPRECOND',
+            'command':command,
             'pinAuth' : pin_token,
 
         }
@@ -299,12 +337,45 @@ class Uconnect_API:
         print(f'VIN: {vin}')
         
         
+        
+        
+
         ret = self.get_aws_data(f'{self._apiUrl}/v2/accounts/{self._user_id}/vehicles/{vin}/status')
         #print(json.dumps(ret, indent=4, sort_keys=True))
         #print(ret['evInfo']['battery']['stateOfCharge'])
-        return  ret#['evInfo']['battery']['stateOfCharge']
+
         
-    def post_data(self ) -> str:
+        
+        
+        return  ret#['evInfo']['battery']['stateOfCharge']
+    
+
+    def fetch_data_with_payload(self, endpoint:str ,payload:str ) -> str:
+        r = self.login()
+        print(f'Login response: {r} ')
+        print('-'*50)
+        self.auth_response()
+        print('-'*50)
+        self.get_jwt_token()
+        print('-'*50)
+        self.get_identity_token()
+        print('-'*50)
+        self.get_aws_credentials()
+        print('-'*50)
+        
+        ret = self.get_aws_data(f'{self._apiUrl}/v4/accounts/{self._user_id}/vehicles')
+        vin = ret['vehicles'][0]['vin']
+        print(f'VIN: {vin}')
+        
+
+        ret = self.get_aws_data_post(f'{self._apiUrl}/v1/accounts/{self._user_id}/vehicles/{vin}/{endpoint}', payload)
+        
+        return  ret
+    
+    def fetch_location(self):
+        return self.fetch_data_with_payload('location/lastknown', 'location')
+        
+    def post_data(self, command, action) -> str:
         r = self.login()
         print(f'Login response: {r} ')
         print('-'*50)
@@ -323,7 +394,7 @@ class Uconnect_API:
         
         #self.post_aws_data(self._pin)
         
-        self.post_aws_command(self._pin, vin)
+        self.post_aws_command(self._pin, vin,command, action)
         
         #ret = self.get_aws_data(f'{self._apiUrl}/v2/accounts/{self._user_id}/vehicles/{vin}/status')
         #print(json.dumps(ret, indent=4, sort_keys=True))

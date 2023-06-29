@@ -9,7 +9,12 @@ from homeassistant.const import CONF_PIN, CONF_PASSWORD, CONF_USERNAME, CONF_ROO
 
 import homeassistant.helpers.config_validation as cv
 
+from .coordinator import PollingCoordinator
+from .uconnect_api import Uconnect_API
+
 DOMAIN = 'uconnect_sensor'
+COORDINATOR = 'coordinator'
+
 _LOGGER = logging.getLogger(__name__)
 
 # Validation of the user's configuration
@@ -30,7 +35,23 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         'password': config[DOMAIN][CONF_PASSWORD],
         'pin': config[DOMAIN][CONF_PIN]
     }
+    
+    hass.data[DOMAIN][COORDINATOR] = PollingCoordinator(hass, 
+                        Uconnect_API(
+                            hass.data[DOMAIN][CONF_USERNAME],
+                            hass.data[DOMAIN][CONF_PASSWORD],
+                            hass.data[DOMAIN][CONF_PIN]
+                            ))
+    
+    
+    
+    await hass.data[DOMAIN][COORDINATOR].async_config_entry_first_refresh()
+    
     hass.async_create_task(
-        hass.helpers.discovery.async_load_platform('sensor', DOMAIN, {}, config)
+        hass.helpers.discovery.async_load_platform('sensor', DOMAIN, {}, config)        
+    )
+    
+    hass.async_create_task(
+       hass.helpers.discovery.async_load_platform('device_tracker', DOMAIN, {}, config)        
     )
     return True

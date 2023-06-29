@@ -1,51 +1,38 @@
 from typing import Type
 import json
-from uconnect_api import Uconnect_API
+import pathlib
+from custom_components.uconnect_sensor.uconnect_api import Uconnect_API
+from custom_components.uconnect_sensor.uconnect import Uconnect_Information, Uconnect_location
 #from .uconnect_api import Uconnect_API
 
 
-class Uconnect_Information():
-    def __init__(self, data: str) -> None:
-        
-        battery_infos = data['evInfo']['battery']
-        self.charging_level             = battery_infos['chargingLevel']
-        self.charging_status            = battery_infos['chargingStatus']
-        #self.distance_to_empty_unit     = battery_infos['distanceToEmpty']['unit']
-        self.distance_to_empty_value    = battery_infos['distanceToEmpty']['value']
-        self.plug_in_status             = battery_infos['plugInStatus']
-        self.state_of_charge            = battery_infos['stateOfCharge']
-        self.total_range                = battery_infos['totalRange']
-    
-    
-    def get_data(self) -> dict:
-        
-        return_dict = {
-            'chargingLevel' : self.charging_level,             
-            'chargingStatus':self.charging_status, 
-  #          'distanceToEmpty_unit': self.distance_to_empty_unit,    
-            'distanceToEmpty_value': self.distance_to_empty_value ,   
-            'plugInStatus' : self.plug_in_status    ,        
-            'stateOfCharge' : self.state_of_charge ,
-            'totalRange' :  self.total_range
-        }
-        
-        
-        return return_dict
-        
-    def __str__(self) -> str:
-        
-        return json.dumps(self.get_data(), indent=4, sort_keys=True)
-            
-                
-
-
 def main():
-    api = Uconnect_API()
-    data = api.fetch_data()
     
-    car_information = Uconnect_Information(data).get_data()
-    print(car_information)
-
+    p = pathlib.Path(__file__).parent / '_test_creds.json'
+    
+    print(p)
+  
+    # Opening JSON file
+    f = open(p.resolve())
+    data = json.load(f)
+    
+    
+    
+    api = Uconnect_API(data['username'], data['password'], data['pin'] )
+    #data = api.fetch_data("svla")
+    #data = api.fetch_data()
+    
+    #car_information = Uconnect_Information(data)
+    #print(car_information)
+    
+    #data = api.post_data('DEEPREFRESH','ev')
+    #print(data)
+    
+    data = api.fetch_data_with_payload('location/lastknown', 'location')
+    location = Uconnect_location(data).get_data()
+    #print(json.dumps(location, indent=4, sort_keys=True))
+    
+    print(json.dumps(data, indent=4, sort_keys=True))
 if __name__ == '__main__':
     # execute only if run as the entry point into the program
     main()
