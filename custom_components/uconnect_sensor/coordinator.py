@@ -1,7 +1,6 @@
 import logging
 from datetime import timedelta
 from homeassistant.helpers.update_coordinator import (
-    CoordinatorEntity,
     DataUpdateCoordinator,
     UpdateFailed,
 )
@@ -22,7 +21,7 @@ class PollingCoordinator(DataUpdateCoordinator):
             # Name of the data. For logging purposes.
             name="uconnect",
             # Polling interval. Will only be polled if there are subscribers.
-            update_interval=timedelta(seconds=600),
+            update_interval=timedelta(seconds=60),
         )
         self.api = api
         
@@ -35,14 +34,14 @@ class PollingCoordinator(DataUpdateCoordinator):
         """
         try:
 
-            async with async_timeout.timeout(10):
+            async with async_timeout.timeout(20):
 
                 fetch_data_result = await self.hass.async_add_executor_job(self.api.fetch_data)
-                fetch_location_result = await self.hass.async_add_executor_job(self.api.fetch_location)
+                #fetch_location_result = await self.hass.async_add_executor_job(self.api.fetch_location)
 
                 data = {
-                    'sensor' : Uconnect_Information(fetch_data_result).get_data(),
-                    'device_tracker': fetch_location_result
+                    'sensor' : Uconnect_Information(fetch_data_result['status']).get_data(),
+                    'device_tracker': fetch_data_result['location']
                 }
 
                 
