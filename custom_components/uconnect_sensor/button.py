@@ -5,14 +5,14 @@ import logging
 
 from homeassistant.core import callback, HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.components.switch import SwitchEntity
+from homeassistant.components.button import ButtonEntity
 
 
 from homeassistant.helpers.entity import generate_entity_id
 
 
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
-from . import DOMAIN, COORDINATOR, API
+from . import DOMAIN, COORDINATOR, API, Uconnect_API
 from requests import get
 
 # from requests import async
@@ -25,20 +25,21 @@ async def async_setup_platform(
     async_add_entities: AddEntitiesCallback,
     discovery_info: DiscoveryInfoType | None = None,
 ) -> None:
-    entities: list[UconnectSwitch] = []
+    entities: list[UconnectButtonEntity] = []
 
-    entities.extend([UconnectSwitch(hass.data[DOMAIN][API], hass)])
+    entities.extend([UconnectButtonEntity(hass.data[DOMAIN][API], hass)])
 
     async_add_entities(entities)
 
 
-class UconnectSwitch(SwitchEntity):
+class UconnectButtonEntity(ButtonEntity):
     """Representation of Uconnect entity."""
 
-    def __init__(self, api, hass) -> None:
+    def __init__(self, api: Uconnect_API, hass) -> None:
         self.api = api
+        self.hass = hass
         self._attr_icon = "mdi:air-conditioner"
-        self._attr_unique_id = generate_entity_id("56786", "65197867864654", hass=hass)
+        self._attr_unique_id = generate_entity_id("351354", "35", hass=hass)
 
     @property
     def is_on(self) -> bool:
@@ -48,14 +49,9 @@ class UconnectSwitch(SwitchEntity):
     @property
     def name(self) -> str:
         """Return the name"""
-        return "Uconnect HAVAC Switch"
+        return "Uconnect HAVAC"
 
-    async def async_turn_on(self, **kwargs: Any) -> None:
-        _LOGGER.error("TEST")
-
-        # self.coordinator.async_update_listeners()
-
-    async def async_turn_off(self, **kwargs: Any) -> None:
-        _LOGGER.error("TEST")
-
-        # self.coordinator.async_update_listeners()
+    async def async_press(self) -> None:
+        # self.api.precond_on()
+        # await self.hass.async_create_task(self.api.precond_on)
+        await self.hass.async_add_executor_job(self.api.precond_on)

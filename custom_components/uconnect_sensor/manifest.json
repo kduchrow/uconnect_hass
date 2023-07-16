@@ -4,7 +4,8 @@
     "codeowners": ["atomkiwi"],
     "dependencies": [
     ],
-    "documentation": "https://github.com/home-assistant/example-custom-config/tree/master/custom_components/example_sensor/",
+    "config_flow": false,
+    "documentation": "https://github.com/kduchrow/uconnect_hass",
     "iot_class": "cloud_polling",
     "requirements": [
         "aws-requests-auth==0.4.3",
